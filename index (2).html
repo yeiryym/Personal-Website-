@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yeiry Melendez — Room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --black:#05070d;
+    --blue-deep:#0d2a6b;
+    --blue:#1c4fd1;
+    --blue-bright:#3f74ff;
+    --off-white:#f2f4fa;
+  }
+
+  *{ box-sizing:border-box; }
+
+  html,body{
+    margin:0;
+    height:100%;
+    width:100%;
+    overflow:hidden;
+    background:var(--black);
+    font-family:'Jost', sans-serif;
+    color:var(--off-white);
+  }
+
+  /* ---------- ROOM BACKGROUND — true 3D box so each wall's stripes are correctly
+       foreshortened by the browser's own perspective math (stays constant, no fade
+       between screens). The room is now a centered box on a plain black page
+       instead of filling the whole viewport. ---------- */
+  .room-bg{
+    position:fixed;
+    inset:0;
+    z-index:0;
+    background:var(--black);
+    overflow:hidden;
+    perspective: 65vh;
+    perspective-origin: 50% 50%;
+  }
+  .room-3d{
+    position:absolute;
+    inset:0;
+    transform-style: preserve-3d;
+  }
+  .wall{
+    position:absolute;
+    background-image: repeating-linear-gradient(
+      -18deg,
+      #05070d 0px 42px,
+      #1c4fd1 42px 84px,
+      #f2f4fa 84px 126px
+    );
+  }
+  .wall-back{
+    width:100vw; height:100vh;
+    top:0; left:0;
+    transform: translateZ(-35vh);
+  }
+  .wall-ceiling{
+    width:100vw; height:70vh;
+    top:15vh; left:0;
+    transform: rotateX(90deg) translateZ(50vh);
+  }
+  .wall-floor{
+    width:100vw; height:70vh;
+    top:15vh; left:0;
+    transform: rotateX(-90deg) translateZ(50vh);
+  }
+  .wall-left{
+    width:70vh; height:100vh;
+    top:0; left:calc(50vw - 35vh);
+    background-image: repeating-linear-gradient(
+      18deg,
+      #05070d 0px 42px,
+      #1c4fd1 42px 84px,
+      #f2f4fa 84px 126px
+    );
+    background-position: 0 -34px;
+    transform: rotateY(-90deg) translateZ(50vw);
+  }
+  .wall-right{
+    width:70vh; height:100vh;
+    top:0; left:calc(50vw - 35vh);
+    transform: rotateY(90deg) translateZ(50vw);
+  }
+  .room-vignette{
+    position:fixed;
+    inset:0;
+    z-index:0;
+    pointer-events:none;
+    background:radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 40%, rgba(5,7,13,0.55) 100%);
+  }
+
+  /* ---------- SCENE ---------- */
+  .scene{
+    position:relative;
+    width:100vw;
+    height:100vh;
+    z-index:1;
+  }
+
+  /* top nav — Resume / LinkedIn / Contact, only visible in main state */
+  .top-nav{
+    position:absolute;
+    top:32px;
+    left:50%;
+    transform:translateX(-50%);
+    display:flex;
+    justify-content:space-between;
+    width:min(78vw, 620px);
+    z-index:6;
+    opacity:0;
+    pointer-events:none;
+    transition: opacity 0.5s ease 0.3s;
+  }
+  body.state-main .top-nav{
+    opacity:1;
+    pointer-events:auto;
+  }
+  .top-nav a, .top-nav button{
+    font-family:'Jost', sans-serif;
+    font-weight:400;
+    font-size:1rem;
+    letter-spacing:3px;
+    color:var(--off-white);
+    text-decoration:none;
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding:0;
+    -webkit-text-stroke: 1px #05070d;
+    paint-order: stroke fill;
+    transition: color 0.2s ease;
+  }
+  .top-nav a:hover, .top-nav button:hover{
+    color:var(--blue-bright);
+  }
+  .top-nav a:active, .top-nav button:active{
+    color:var(--blue-bright);
+    transform:scale(0.9);
+    display:inline-block;
+    transition: transform 0.06s ease-out, color 0.06s ease-out;
+  }
+
+  .name-block{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    text-align:center;
+    z-index:5;
+    width:min(90vw, 640px);
+    animation: floatToFace 1.3s cubic-bezier(.22,1,.36,1) both;
+  }
+
+  @keyframes floatToFace{
+    0%{ opacity:0; transform:translate(-50%,-50%) translateY(55px) scale(0.72); }
+    100%{ opacity:1; transform:translate(-50%,-50%) translateY(0) scale(1); }
+  }
+
+  .name{
+    font-weight:300;
+    font-size:clamp(2.7rem, 7.6vw, 4.3rem);
+    line-height:1.08;
+    margin:0;
+    letter-spacing:0.5px;
+    -webkit-text-stroke: 2px #05070d;
+    paint-order: stroke fill;
+    text-shadow:
+      0 2px 0 rgba(0,0,0,0.55),
+      0 10px 26px rgba(0,0,0,0.6),
+      0 0 46px rgba(63,116,255,0.4);
+    transition: font-size 0.6s ease, text-shadow 0.6s ease;
+  }
+  body.state-landing .name{
+    font-size:clamp(3.9rem, 10.8vw, 6.1rem);
+    text-shadow:
+      0 4px 0 rgba(0,0,0,0.6),
+      0 16px 40px rgba(0,0,0,0.65),
+      0 0 60px rgba(63,116,255,0.45);
+  }
+
+  .suffix{
+    display:block;
+    font-weight:300;
+    font-size:clamp(1.4rem, 4vw, 2.1rem);
+    color:var(--blue-bright);
+    opacity:1;
+    max-height:120px;
+    transition: opacity 0.6s ease, max-height 0.6s ease, margin 0.6s ease;
+    margin-top:4px;
+  }
+  body.state-main .suffix{
+    opacity:0;
+    max-height:0;
+    margin-top:0;
+  }
+
+  .welcome-btn{
+    margin-top:34px;
+    font-family:'Jost', sans-serif;
+    font-weight:500;
+    font-size:1rem;
+    letter-spacing:1px;
+    color:var(--off-white);
+    background:transparent;
+    border:1.5px solid var(--blue-bright);
+    padding:12px 38px;
+    cursor:pointer;
+    transition: opacity 0.5s ease, transform 0.5s ease, background 0.25s ease, visibility 0.5s;
+  }
+  .welcome-btn:hover{
+    background:var(--blue-bright);
+    color:var(--black);
+  }
+  .welcome-btn:active{
+    transform:scale(0.92);
+    background:var(--blue-bright);
+    color:var(--black);
+    transition: transform 0.07s ease-out, background 0.07s ease-out, color 0.07s ease-out;
+  }
+  body.state-main .welcome-btn{
+    opacity:0;
+    transform:scale(0.85);
+    pointer-events:none;
+    visibility:hidden;
+  }
+
+  /* back button — only visible in main state */
+  .back-btn{
+    display:block;
+    margin:18px auto 0;
+    font-family:'Jost', sans-serif;
+    font-weight:400;
+    font-size:0.82rem;
+    letter-spacing:1.5px;
+    color:rgba(242,244,250,0.65);
+    background:none;
+    border:none;
+    cursor:pointer;
+    -webkit-text-stroke: 1px #05070d;
+    paint-order: stroke fill;
+    opacity:0;
+    pointer-events:none;
+    transition: opacity 0.45s ease, color 0.2s ease;
+  }
+  .back-btn:hover{ color:var(--blue-bright); }
+  .back-btn:active{
+    transform:scale(0.88);
+    color:var(--blue-bright);
+    transition: transform 0.07s ease-out, color 0.07s ease-out;
+  }
+  body.state-main .back-btn{
+    opacity:1;
+    pointer-events:auto;
+  }
+
+  /* ---------- SHAPES LAYER ---------- */
+  .shapes-layer{
+    position:absolute;
+    inset:0;
+    z-index:4;
+  }
+
+  .shape{
+    position:absolute;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
+    border:none;
+    border-radius:20%;
+    background:#f2f4fa;
+    color:var(--black);
+    box-shadow:0 8px 20px rgba(0,0,0,0.4);
+    opacity:0;
+    transform:scale(0) rotate(var(--rot, 0deg));
+    top:var(--top);
+    left:var(--left);
+    width:var(--size);
+    height:var(--size);
+  }
+
+  .shape.clickable{
+    cursor:pointer;
+    transition: background 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  .shape.clickable:hover{
+    background:#dbe2f2;
+    transform:scale(1.07) rotate(var(--rot, 0deg));
+    box-shadow:0 12px 28px rgba(0,0,0,0.5);
+  }
+  .shape.clickable:active{
+    background:#c7d0e8;
+    transform:scale(0.88) rotate(var(--rot, 0deg));
+    box-shadow:0 2px 6px rgba(0,0,0,0.35);
+    transition: transform 0.06s ease-out, background 0.06s ease-out, box-shadow 0.06s ease-out;
+  }
+
+  .shape.decor{
+    background:rgba(242,244,250,0.55);
+    box-shadow:0 6px 14px rgba(0,0,0,0.3);
+  }
+
+  .shape svg{
+    width:66%;
+    height:66%;
+  }
+  .shape svg path{
+    stroke:var(--black);
+  }
+  .shape.decor svg path{
+    stroke:rgba(5,7,13,0.7);
+  }
+
+  .shape .label{
+    font-size:0.62rem;
+    font-weight:400;
+    letter-spacing:0.4px;
+    text-align:center;
+    padding:0 6px;
+    color:var(--black);
+  }
+
+  body.state-main .shape{
+    animation: popIn 0.6s cubic-bezier(.34,1.56,.64,1) forwards;
+    animation-delay: var(--delay);
+  }
+
+  @keyframes popIn{
+    0%{ opacity:0; transform:scale(0) rotate(var(--rot,0deg)); }
+    60%{ opacity:1; transform:scale(1.12) rotate(var(--rot,0deg)); }
+    100%{ opacity:1; transform:scale(1) rotate(var(--rot,0deg)); }
+  }
+
+  /* six clickable project buttons — all appear together */
+  .s1{ --top:21%; --left:23%; --size:112px; --delay:0.1s; --rot:-4deg; }
+  .s2{ --top:19%; --left:70%; --size:132px; --delay:0.1s; --rot:3deg; }
+  .s3{ --top:47%; --left:18%; --size:92px;  --delay:0.1s; --rot:5deg; }
+  .s4{ --top:50%; --left:77%; --size:140px; --delay:0.1s; --rot:-3deg; }
+  .s5{ --top:71%; --left:25%; --size:82px;  --delay:0.1s; --rot:2deg; }
+  .s6{ --top:73%; --left:68%; --size:118px; --delay:0.1s; --rot:-5deg; }
+
+  /* three smaller decorative (non-clickable) shapes */
+  .d1{ --top:18%; --left:49%; --size:46px; --delay:0.1s; --rot:8deg; }
+  .d2{ --top:72%; --left:49%; --size:38px; --delay:0.1s; --rot:-6deg; }
+  .d3{ --top:36%; --left:63%; --size:52px; --delay:0.1s; --rot:4deg; }
+
+  @media (max-width:720px){
+    .shapes-layer{
+      position:static;
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      gap:14px;
+      margin-top:300px;
+      padding:0 20px 40px;
+    }
+    .shape{
+      position:static;
+      transform:scale(0);
+    }
+    .name-block{ top:130px; transform:translate(-50%,0); }
+    body.state-landing .name-block{ animation-name: floatToFaceMobile; }
+    .scene{ overflow-y:auto; height:100vh; }
+    .top-nav{ top:16px; width:92vw; }
+  }
+  @keyframes floatToFaceMobile{
+    0%{ opacity:0; transform:translate(-50%,0) translateY(40px) scale(0.8); }
+    100%{ opacity:1; transform:translate(-50%,0) translateY(0) scale(1); }
+  }
+
+  /* ---------- OVERLAY / POPUP (projects) ---------- */
+  .overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(5,7,13,0.96);
+    z-index:20;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    opacity:0;
+    visibility:hidden;
+    transition:opacity 0.35s ease, visibility 0.35s ease;
+    padding:24px;
+  }
+  .overlay.open{
+    opacity:1;
+    visibility:visible;
+  }
+
+  .overlay-content{
+    max-width:640px;
+    width:100%;
+    max-height:88vh;
+    overflow-y:auto;
+    border:1.5px solid var(--blue-bright);
+    padding:40px;
+    position:relative;
+    background:linear-gradient(180deg, rgba(28,79,209,0.06), transparent);
+  }
+
+  .overlay-close{
+    position:absolute;
+    top:16px;
+    right:20px;
+    background:none;
+    border:none;
+    color:var(--off-white);
+    font-size:1.6rem;
+    cursor:pointer;
+    font-family:'Jost', sans-serif;
+    line-height:1;
+  }
+  .overlay-close:hover{ color:var(--blue-bright); }
+  .overlay-close:active{ transform:scale(0.8); color:var(--blue-bright); transition: transform 0.06s ease-out, color 0.06s ease-out; }
+
+  .overlay-content h2{
+    font-weight:400;
+    font-size:1.8rem;
+    margin:0 0 6px;
+  }
+  .overlay-content .tagline{
+    color:var(--blue-bright);
+    font-weight:400;
+    margin:0 0 22px;
+    font-size:0.95rem;
+    letter-spacing:0.3px;
+  }
+  .overlay-content p{
+    font-weight:300;
+    line-height:1.65;
+    font-size:0.98rem;
+    color:rgba(242,244,250,0.85);
+  }
+
+  .photo-frame{
+    width:100%;
+    aspect-ratio:16/10;
+    border:1px dashed rgba(63,116,255,0.5);
+    margin-bottom:22px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    background:rgba(255,255,255,0.02);
+  }
+  .photo-frame img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  .photo-frame .placeholder-text{
+    font-size:0.8rem;
+    color:rgba(242,244,250,0.4);
+    text-align:center;
+    padding:0 20px;
+  }
+
+  /* ---------- ABOUT ME — scrollable collage: photos scattered around the bio text ---------- */
+  .about-collage{
+    display:none;
+  }
+  .about-collage.active{
+    display:block;
+    overflow:hidden; /* clearfix so the container grows around floated photos */
+  }
+  .about-collage p{
+    font-weight:300;
+    line-height:1.75;
+    font-size:0.98rem;
+    color:rgba(242,244,250,0.85);
+    margin:0 0 20px;
+  }
+  .scatter-photo{
+    width:42%;
+    max-width:170px;
+    background:#f2f4fa;
+    padding:6px 6px 10px;
+    box-shadow:0 10px 24px rgba(0,0,0,0.45);
+    margin:6px;
+  }
+  .scatter-photo.float-left{ float:left; margin-right:16px; }
+  .scatter-photo.float-right{ float:right; margin-left:16px; }
+  .scatter-photo img{
+    width:100%;
+    aspect-ratio:1/1;
+    object-fit:cover;
+    display:block;
+  }
+  .scatter-placeholder{
+    width:100%;
+    aspect-ratio:1/1;
+    border:1px dashed rgba(5,7,13,0.4);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:8px;
+    font-size:0.65rem;
+    line-height:1.4;
+    color:rgba(5,7,13,0.55);
+    word-break:break-word;
+  }
+  .about-collage .clearfix{ clear:both; }
+  @media (max-width:520px){
+    .scatter-photo{ width:38%; }
+  }
+
+  /* ---------- CONTACT POPUP (smaller card) ---------- */
+  .contact-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(5,7,13,0.9);
+    z-index:25;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    opacity:0;
+    visibility:hidden;
+    transition:opacity 0.3s ease, visibility 0.3s ease;
+    padding:24px;
+  }
+  .contact-overlay.open{
+    opacity:1;
+    visibility:visible;
+  }
+  .contact-card{
+    max-width:420px;
+    width:100%;
+    border:1.5px solid var(--blue-bright);
+    padding:34px 32px;
+    position:relative;
+    background:linear-gradient(180deg, rgba(28,79,209,0.08), transparent);
+    text-align:center;
+  }
+  .contact-card p{
+    font-weight:300;
+    font-size:0.98rem;
+    line-height:1.7;
+    color:rgba(242,244,250,0.9);
+    margin:0 0 4px;
+  }
+  .contact-card .email{
+    color:var(--blue-bright);
+    font-weight:400;
+  }
+  .contact-close{
+    position:absolute;
+    top:12px;
+    right:16px;
+    background:none;
+    border:none;
+    color:var(--off-white);
+    font-size:1.5rem;
+    cursor:pointer;
+    font-family:'Jost', sans-serif;
+    line-height:1;
+  }
+  .contact-close:hover{ color:var(--blue-bright); }
+  .contact-close:active{ transform:scale(0.8); color:var(--blue-bright); transition: transform 0.06s ease-out, color 0.06s ease-out; }
+
+  @media (prefers-reduced-motion: reduce){
+    .shape, .suffix, .welcome-btn, .name-block, .name{ transition:none !important; animation:none !important; }
+    body.state-main .shape{ opacity:1; transform:scale(1) rotate(var(--rot,0deg)); }
+    .name-block{ opacity:1; transform:translate(-50%,-50%); }
+  }
+</style>
+</head>
+<body class="state-landing">
+
+  <div class="room-bg">
+    <div class="room-3d">
+      <div class="wall wall-back"></div>
+      <div class="wall wall-ceiling"></div>
+      <div class="wall wall-floor"></div>
+      <div class="wall wall-left"></div>
+      <div class="wall wall-right"></div>
+    </div>
+  </div>
+  <div class="room-vignette"></div>
+
+
+  <div class="scene">
+
+    <nav class="top-nav">
+      <a href="assets/resume.pdf" target="_blank" rel="noopener">Resume</a>
+      <a href="https://linkedin.com/in/yeirymelendez" target="_blank" rel="noopener">LinkedIn</a>
+      <button id="contactBtn" type="button">Contact</button>
+    </nav>
+
+    <div class="name-block">
+      <h1 class="name">Yeiry Melendez<span class="suffix">'s Room</span></h1>
+      <button class="welcome-btn" id="welcomeBtn">Welcome</button>
+      <button class="back-btn" id="backBtn" type="button">Back</button>
+    </div>
+
+    <div class="shapes-layer" id="shapesLayer">
+      <!-- 6 clickable project buttons -->
+      <button class="shape clickable s1" data-project="0" aria-label="Open About Me">
+        <svg viewBox="0 0 100 100" fill="none" stroke-width="10"><path d="M12,12 L88,12 L88,88 L28,88 L28,32 L68,32 L68,68 L44,68 L44,50" stroke-linecap="square" stroke-linejoin="miter"/></svg>
+        <span class="label">About Me</span>
+      </button>
+      <button class="shape clickable s2" data-project="1" aria-label="Open project 2">
+        <svg viewBox="0 0 100 100" fill="none" stroke-width="10"><path d="M12,12 L88,12 L88,88 L28,88 L28,32 L68,32 L68,68 L44,68 L44,50" stroke-linecap="square" stroke-linejoin="miter"/></svg>
+        <span class="label">Project 2</span>
+      </button>
+      <button class="shape clickable s3" data-project="2" aria-label="Open project 3">
+        <svg viewBox="0 0 100 100" fill="none" stroke-width="10"><path d="M12,12 L88,12 L88,88 L28,88 L28,32 L68,32 L68,68 L44,68 L44,50" stroke-linecap="square" stroke-linejoin="miter"/></svg>
+        <span class="label">Project 3</span>
+      </button>
+      <button class="shape clickable s4" data-project="3" aria-label="Open project 4">
+        <svg viewBox="0 0 100 100" fill="none" stroke-width="10"><path d="M12,12 L88,12 L88,88 L28,88 L28,32 L68,32 L68,68 L44,68 L44,50" stroke-linecap="square" stroke-linejoin="miter"/></svg>
+        <span class="label">Project 4</span>
+      </button>
+      <button class="shape clickable s5" data-project="4" aria-label="Open project 5">
+        <svg viewBox="0 0 100 100" fill="none" stroke-width="10"><path d="M12,12 L88,12 L88,88 L28,88 L28,32 L68,32 L68,68 L44,68 L44,50" stroke-linecap="square" stroke-linejoin="miter"/></svg>
+        <span class="label">Project 5</span>
+      </button>
+      <button class="shape clickable s6" data-project="5" aria-label="Open project 6">
+        <svg viewBox="0 0 100 100" fill="none" stroke-width="10"><path d="M12,12 L88,12 L88,88 L28,88 L28,32 L68,32 L68,68 L44,68 L44,50" stroke-linecap="square" stroke-linejoin="miter"/></svg>
+        <span class="label">Project 6</span>
+      </button>
+
+      <!-- 3 smaller decorative, non-clickable shapes -->
+      <div class="shape decor d1" aria-hidden="true">
+        <svg viewBox="0 0 100 100" fill="none" stroke-width="10"><path d="M12,12 L88,12 L88,88 L28,88 L28,32 L68,32 L68,68 L44,68 L44,50" stroke-linecap="square" stroke-linejoin="miter"/></svg>
+      </div>
+      <div class="shape decor d2" aria-hidden="true">
+        <svg viewBox="0 0 100 100" fill="none" stroke-width="10"><path d="M12,12 L88,12 L88,88 L28,88 L28,32 L68,32 L68,68 L44,68 L44,50" stroke-linecap="square" stroke-linejoin="miter"/></svg>
+      </div>
+      <div class="shape decor d3" aria-hidden="true">
+        <svg viewBox="0 0 100 100" fill="none" stroke-width="10"><path d="M12,12 L88,12 L88,88 L28,88 L28,32 L68,32 L68,68 L44,68 L44,50" stroke-linecap="square" stroke-linejoin="miter"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Project popup overlay -->
+  <div class="overlay" id="overlay">
+    <div class="overlay-content">
+      <button class="overlay-close" id="overlayClose" aria-label="Close">&times;</button>
+      <div class="photo-frame" id="photoFrame">
+        <img id="photoImg" alt="" style="display:none;">
+        <span class="placeholder-text" id="photoPlaceholder"></span>
+      </div>
+      <h2 id="projTitle"></h2>
+      <p class="tagline" id="projTagline"></p>
+      <p id="projDesc"></p>
+      <div class="about-collage" id="aboutCollage"></div>
+    </div>
+  </div>
+
+  <!-- Contact popup -->
+  <div class="contact-overlay" id="contactOverlay">
+    <div class="contact-card">
+      <button class="contact-close" id="contactClose" aria-label="Close">&times;</button>
+      <p>I'd love to hear from you — about a role, a collaboration, or just to connect.</p>
+      <p class="email">Email: yeirymelendez1@gmail.com</p>
+    </div>
+  </div>
+
+<script>
+  /* =========================================================
+     EDIT THIS ARRAY to fill in your real projects.
+     "image" should be a relative path to a file in your repo,
+     e.g. "assets/projects/project-1/cover.jpg".
+     If the image file doesn't exist yet, a placeholder box
+     will show instead — no broken image icons.
+     ========================================================= */
+  const projects = [
+    {
+      type: "about",
+      title: "About Me",
+      bio: [
+        "Placeholder bio paragraph — replace with a short introduction: who you are, what you do, and what drives you as an engineer.",
+        "Placeholder bio paragraph — talk about your background, education, or the path that led you here.",
+        "Placeholder bio paragraph — mention your interests outside of work, like your passion for room acoustics, or anything else you'd like visitors to know."
+      ],
+      images: [
+        "assets/projects/about-me/photo-1.jpg",
+        "assets/projects/about-me/photo-2.jpg",
+        "assets/projects/about-me/photo-3.jpg",
+        "assets/projects/about-me/photo-4.jpg",
+        "assets/projects/about-me/photo-5.jpg",
+        "assets/projects/about-me/photo-6.jpg",
+        "assets/projects/about-me/photo-7.jpg",
+        "assets/projects/about-me/photo-8.jpg"
+      ]
+    },
+    {
+      title: "Project 2",
+      tagline: "Engineering project — short tag line here",
+      description: "Placeholder description. Replace this with a short write-up of what the project was, your role, the tools/skills used, and the outcome.",
+      image: "assets/projects/project-2/cover.jpg"
+    },
+    {
+      title: "Project 3",
+      tagline: "Engineering project — short tag line here",
+      description: "Placeholder description. Replace this with a short write-up of what the project was, your role, the tools/skills used, and the outcome.",
+      image: "assets/projects/project-3/cover.jpg"
+    },
+    {
+      title: "Project 4",
+      tagline: "Engineering project — short tag line here",
+      description: "Placeholder description. Replace this with a short write-up of what the project was, your role, the tools/skills used, and the outcome.",
+      image: "assets/projects/project-4/cover.jpg"
+    },
+    {
+      title: "Project 5",
+      tagline: "Engineering project — short tag line here",
+      description: "Placeholder description. Replace this with a short write-up of what the project was, your role, the tools/skills used, and the outcome.",
+      image: "assets/projects/project-5/cover.jpg"
+    },
+    {
+      title: "Project 6",
+      tagline: "Engineering project — short tag line here",
+      description: "Placeholder description. Replace this with a short write-up of what the project was, your role, the tools/skills used, and the outcome.",
+      image: "assets/projects/project-6/cover.jpg"
+    }
+  ];
+
+  const body = document.body;
+  const welcomeBtn = document.getElementById('welcomeBtn');
+  const backBtn = document.getElementById('backBtn');
+  const overlay = document.getElementById('overlay');
+  const overlayClose = document.getElementById('overlayClose');
+  const projTitle = document.getElementById('projTitle');
+  const projTagline = document.getElementById('projTagline');
+  const projDesc = document.getElementById('projDesc');
+  const photoImg = document.getElementById('photoImg');
+  const photoPlaceholder = document.getElementById('photoPlaceholder');
+  const aboutCollage = document.getElementById('aboutCollage');
+  const photoFrame = document.getElementById('photoFrame');
+  const contactBtn = document.getElementById('contactBtn');
+  const contactOverlay = document.getElementById('contactOverlay');
+  const contactClose = document.getElementById('contactClose');
+
+  /* Tiny synthesized keyboard-style click — two tones, no audio file needed.
+     A higher tone plays the instant you press down, and a slightly lower
+     tone plays when you lift your finger/mouse back up, mimicking a real
+     mechanical key. */
+  let audioCtx = null;
+  function playTone(startFreq, endFreq){
+    try{
+      if (!audioCtx){
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(startFreq, now);
+      osc.frequency.exponentialRampToValueAtTime(endFreq, now + 0.018);
+      gain.gain.setValueAtTime(0.06, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.035);
+    }catch(e){ /* audio not available — fail silently */ }
+  }
+  function playClickDown(){ playTone(2600, 1800); }
+  function playClickUp(){ playTone(2000, 1400); }
+
+  /* Attach the down/up click sounds to every interactive button, keyed off
+     the actual press/release gesture rather than the click event. */
+  function wireClickSound(el){
+    el.addEventListener('pointerdown', playClickDown);
+    el.addEventListener('pointerup', playClickUp);
+  }
+  document.querySelectorAll(
+    '.welcome-btn, .shape.clickable'
+  ).forEach(wireClickSound);
+
+  welcomeBtn.addEventListener('click', () => {
+    body.classList.remove('state-landing');
+    body.classList.add('state-main');
+  });
+
+  backBtn.addEventListener('click', () => {
+    body.classList.remove('state-main');
+    body.classList.add('state-landing');
+  });
+
+  document.querySelectorAll('.shape.clickable').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const p = projects[btn.dataset.project];
+      openProject(p);
+    });
+  });
+
+  function openProject(p){
+    projTitle.textContent = p.title;
+
+    if (p.type === 'about'){
+      photoFrame.style.display = 'none';
+      projTagline.style.display = 'none';
+      projDesc.style.display = 'none';
+      aboutCollage.classList.add('active');
+      renderAboutCollage(p);
+    } else {
+      photoFrame.style.display = 'flex';
+      projTagline.style.display = 'block';
+      projDesc.style.display = 'block';
+      aboutCollage.classList.remove('active');
+      aboutCollage.innerHTML = '';
+
+      projTagline.textContent = p.tagline;
+      projDesc.textContent = p.description;
+
+      photoImg.style.display = 'none';
+      photoPlaceholder.textContent = 'Photo goes here — ' + p.image;
+      photoPlaceholder.style.display = 'block';
+
+      const testImg = new Image();
+      testImg.onload = () => {
+        photoImg.src = p.image;
+        photoImg.style.display = 'block';
+        photoPlaceholder.style.display = 'none';
+      };
+      testImg.onerror = () => {
+        photoImg.style.display = 'none';
+        photoPlaceholder.style.display = 'block';
+      };
+      testImg.src = p.image;
+    }
+
+    overlay.classList.add('open');
+  }
+
+  /* Builds the About Me popup: photos float left/right (scattered, slightly
+     rotated) with the bio paragraphs flowing around them as you scroll. */
+  function renderAboutCollage(p){
+    aboutCollage.innerHTML = '';
+    const rotations = [-6, 4, -3, 7, -5, 3, -4, 6];
+
+    p.images.forEach((src, i) => {
+      const fig = document.createElement('div');
+      fig.className = 'scatter-photo ' + (i % 2 === 0 ? 'float-left' : 'float-right');
+      fig.style.transform = 'rotate(' + rotations[i % rotations.length] + 'deg)';
+
+      const img = document.createElement('img');
+      img.alt = p.title + ' photo ' + (i + 1);
+      img.onerror = () => {
+        fig.innerHTML = '<div class="scatter-placeholder">Photo ' + (i + 1) + '<br>' + src + '</div>';
+      };
+      img.src = src;
+      fig.appendChild(img);
+      aboutCollage.appendChild(fig);
+    });
+
+    p.bio.forEach(paragraph => {
+      const para = document.createElement('p');
+      para.textContent = paragraph;
+      aboutCollage.appendChild(para);
+    });
+
+    const clear = document.createElement('div');
+    clear.className = 'clearfix';
+    aboutCollage.appendChild(clear);
+  }
+
+  function closeOverlay(){
+    overlay.classList.remove('open');
+  }
+
+  overlayClose.addEventListener('click', closeOverlay);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeOverlay();
+  });
+
+  contactBtn.addEventListener('click', () => {
+    contactOverlay.classList.add('open');
+  });
+  contactClose.addEventListener('click', () => {
+    contactOverlay.classList.remove('open');
+  });
+  contactOverlay.addEventListener('click', (e) => {
+    if (e.target === contactOverlay) contactOverlay.classList.remove('open');
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape'){
+      closeOverlay();
+      contactOverlay.classList.remove('open');
+    }
+  });
+</script>
+
+</body>
+</html>
