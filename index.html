@@ -463,6 +463,56 @@
     padding:0 20px;
   }
 
+  /* ---------- ABOUT ME — scrollable collage: photos scattered around the bio text ---------- */
+  .about-collage{
+    display:none;
+  }
+  .about-collage.active{
+    display:block;
+    overflow:hidden; /* clearfix so the container grows around floated photos */
+  }
+  .about-collage p{
+    font-weight:300;
+    line-height:1.75;
+    font-size:0.98rem;
+    color:rgba(242,244,250,0.85);
+    margin:0 0 20px;
+  }
+  .scatter-photo{
+    width:42%;
+    max-width:170px;
+    background:#f2f4fa;
+    padding:6px 6px 10px;
+    box-shadow:0 10px 24px rgba(0,0,0,0.45);
+    margin:6px;
+  }
+  .scatter-photo.float-left{ float:left; margin-right:16px; }
+  .scatter-photo.float-right{ float:right; margin-left:16px; }
+  .scatter-photo img{
+    width:100%;
+    aspect-ratio:1/1;
+    object-fit:cover;
+    display:block;
+  }
+  .scatter-placeholder{
+    width:100%;
+    aspect-ratio:1/1;
+    border:1px dashed rgba(5,7,13,0.4);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:8px;
+    font-size:0.65rem;
+    line-height:1.4;
+    color:rgba(5,7,13,0.55);
+    word-break:break-word;
+  }
+  .about-collage .clearfix{ clear:both; }
+  @media (max-width:520px){
+    .scatter-photo{ width:38%; }
+  }
+
   /* ---------- CONTACT POPUP (smaller card) ---------- */
   .contact-overlay{
     position:fixed;
@@ -553,9 +603,9 @@
 
     <div class="shapes-layer" id="shapesLayer">
       <!-- 6 clickable project buttons -->
-      <button class="shape clickable s1" data-project="0" aria-label="Open project 1">
+      <button class="shape clickable s1" data-project="0" aria-label="Open About Me">
         <svg viewBox="0 0 100 100" fill="none" stroke-width="10"><path d="M12,12 L88,12 L88,88 L28,88 L28,32 L68,32 L68,68 L44,68 L44,50" stroke-linecap="square" stroke-linejoin="miter"/></svg>
-        <span class="label">Project 1</span>
+        <span class="label">About Me</span>
       </button>
       <button class="shape clickable s2" data-project="1" aria-label="Open project 2">
         <svg viewBox="0 0 100 100" fill="none" stroke-width="10"><path d="M12,12 L88,12 L88,88 L28,88 L28,32 L68,32 L68,68 L44,68 L44,50" stroke-linecap="square" stroke-linejoin="miter"/></svg>
@@ -602,6 +652,7 @@
       <h2 id="projTitle"></h2>
       <p class="tagline" id="projTagline"></p>
       <p id="projDesc"></p>
+      <div class="about-collage" id="aboutCollage"></div>
     </div>
   </div>
 
@@ -624,10 +675,23 @@
      ========================================================= */
   const projects = [
     {
-      title: "Project 1",
-      tagline: "Engineering project — short tag line here",
-      description: "Placeholder description. Replace this with a short write-up of what the project was, your role, the tools/skills used, and the outcome.",
-      image: "assets/projects/project-1/cover.jpg"
+      type: "about",
+      title: "About Me",
+      bio: [
+        "Placeholder bio paragraph — replace with a short introduction: who you are, what you do, and what drives you as an engineer.",
+        "Placeholder bio paragraph — talk about your background, education, or the path that led you here.",
+        "Placeholder bio paragraph — mention your interests outside of work, like your passion for room acoustics, or anything else you'd like visitors to know."
+      ],
+      images: [
+        "assets/projects/about-me/photo-1.jpg",
+        "assets/projects/about-me/photo-2.jpg",
+        "assets/projects/about-me/photo-3.jpg",
+        "assets/projects/about-me/photo-4.jpg",
+        "assets/projects/about-me/photo-5.jpg",
+        "assets/projects/about-me/photo-6.jpg",
+        "assets/projects/about-me/photo-7.jpg",
+        "assets/projects/about-me/photo-8.jpg"
+      ]
     },
     {
       title: "Project 2",
@@ -671,6 +735,8 @@
   const projDesc = document.getElementById('projDesc');
   const photoImg = document.getElementById('photoImg');
   const photoPlaceholder = document.getElementById('photoPlaceholder');
+  const aboutCollage = document.getElementById('aboutCollage');
+  const photoFrame = document.getElementById('photoFrame');
   const contactBtn = document.getElementById('contactBtn');
   const contactOverlay = document.getElementById('contactOverlay');
   const contactClose = document.getElementById('contactClose');
@@ -732,26 +798,73 @@
 
   function openProject(p){
     projTitle.textContent = p.title;
-    projTagline.textContent = p.tagline;
-    projDesc.textContent = p.description;
 
-    photoImg.style.display = 'none';
-    photoPlaceholder.textContent = 'Photo goes here — ' + p.image;
-    photoPlaceholder.style.display = 'block';
+    if (p.type === 'about'){
+      photoFrame.style.display = 'none';
+      projTagline.style.display = 'none';
+      projDesc.style.display = 'none';
+      aboutCollage.classList.add('active');
+      renderAboutCollage(p);
+    } else {
+      photoFrame.style.display = 'flex';
+      projTagline.style.display = 'block';
+      projDesc.style.display = 'block';
+      aboutCollage.classList.remove('active');
+      aboutCollage.innerHTML = '';
 
-    const testImg = new Image();
-    testImg.onload = () => {
-      photoImg.src = p.image;
-      photoImg.style.display = 'block';
-      photoPlaceholder.style.display = 'none';
-    };
-    testImg.onerror = () => {
+      projTagline.textContent = p.tagline;
+      projDesc.textContent = p.description;
+
       photoImg.style.display = 'none';
+      photoPlaceholder.textContent = 'Photo goes here — ' + p.image;
       photoPlaceholder.style.display = 'block';
-    };
-    testImg.src = p.image;
+
+      const testImg = new Image();
+      testImg.onload = () => {
+        photoImg.src = p.image;
+        photoImg.style.display = 'block';
+        photoPlaceholder.style.display = 'none';
+      };
+      testImg.onerror = () => {
+        photoImg.style.display = 'none';
+        photoPlaceholder.style.display = 'block';
+      };
+      testImg.src = p.image;
+    }
 
     overlay.classList.add('open');
+  }
+
+  /* Builds the About Me popup: photos float left/right (scattered, slightly
+     rotated) with the bio paragraphs flowing around them as you scroll. */
+  function renderAboutCollage(p){
+    aboutCollage.innerHTML = '';
+    const rotations = [-6, 4, -3, 7, -5, 3, -4, 6];
+
+    p.images.forEach((src, i) => {
+      const fig = document.createElement('div');
+      fig.className = 'scatter-photo ' + (i % 2 === 0 ? 'float-left' : 'float-right');
+      fig.style.transform = 'rotate(' + rotations[i % rotations.length] + 'deg)';
+
+      const img = document.createElement('img');
+      img.alt = p.title + ' photo ' + (i + 1);
+      img.onerror = () => {
+        fig.innerHTML = '<div class="scatter-placeholder">Photo ' + (i + 1) + '<br>' + src + '</div>';
+      };
+      img.src = src;
+      fig.appendChild(img);
+      aboutCollage.appendChild(fig);
+    });
+
+    p.bio.forEach(paragraph => {
+      const para = document.createElement('p');
+      para.textContent = paragraph;
+      aboutCollage.appendChild(para);
+    });
+
+    const clear = document.createElement('div');
+    clear.className = 'clearfix';
+    aboutCollage.appendChild(clear);
   }
 
   function closeOverlay(){
